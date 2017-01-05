@@ -1,7 +1,8 @@
 #! /bin/bash
+set -m
 
 influxd -pidfile /var/run/influxdb.pid -config /etc/influxdb/influxdb.conf ${INFLUXD_OPTS} &
-sleep 5
+sleep 3
 if [ "X${INFLUXDB_DATABASES}" != "X" ];then
     for db in $(echo ${INFLUXDB_DATABASES} |sed -e 's/,/ /g');do 
         echo "[INFO] Create database ${db}"
