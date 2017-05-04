@@ -50,8 +50,10 @@ RUN apk --no-cache add wget curl \
  && rm -f /tmp/consul-template.zip
 
 ADD opt/qnib/influxdb/bin/start.sh \
+    opt/qnib/influxdb/bin/healthcheck.sh \
    /opt/qnib/influxdb/bin/
 ADD etc/consul-templates/influxdb/influxdb.conf.ctmpl /etc/consul-templates/influxdb/
 ADD opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
-
+HEALTHCHECK --interval=2s --retries=300 --timeout=1s \
+  CMD /opt/qnib/influxdb/bin/healthcheck.sh
 CMD ["/opt/qnib/influxdb/bin/start.sh"]
