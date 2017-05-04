@@ -1,4 +1,4 @@
 #!/bin/bash
 
 
-influx -execute 'show databases' -user 
+influx -execute 'show databases'
