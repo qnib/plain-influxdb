@@ -23,24 +23,25 @@ ENV ROOT_PASSWORD=root \
     INFLUXDB_WAL_LOGGING=false \
     INFLUXDB_QUERY_LOGGING=false \
     INFLUXDB_HTTP_LOGGING=false \
-    INFLUXDB_TRACE_LOGGING=false
-ARG INFLUXDB_VER=1.0.2
+    INFLUXDB_TRACE_LOGGING=false \
+    ENTRYPOINTS_DIR=/opt/qnib/entry \
+    PATH=${PATH}:/opt/influxdb/
+ARG INFLUXDB_VER=1.2.4
 ARG INFLUXDB_URL=https://dl.influxdata.com/influxdb/releases
-ARG CT_VER=0.15.0
-
-RUN apk --no-cache add wget curl \
+ARG CT_VER=0.18.5
+RUN apk add --no-cache --virtual .build-deps wget gnupg tar ca-certificates \
+ && wget -q https://dl.influxdata.com/influxdb/releases/influxdb-${INFLUXDB_VER}-static_linux_amd64.tar.gz \
+ && mkdir -p /usr/src /opt/influxdb/ \
+ && tar -C /usr/src -xzf influxdb-${INFLUXDB_VER}-static_linux_amd64.tar.gz \
+ && rm -f /usr/src/influxdb-*/influxdb.conf \
+ && chmod +x /usr/src/influxdb-*/* \
+ && cp -a /usr/src/influxdb-*/* /opt/influxdb/ \
+ && rm -rf *.tar.gz* /usr/src /root/.gnupg \
+ && apk del .build-deps \
+ && apk --no-cache add wget curl \
  && wget -qO /usr/local/bin/go-github https://github.com/qnib/go-github/releases/download/0.2.2/go-github_0.2.2_MuslLinux \
  && chmod +x /usr/local/bin/go-github \
  && echo -n "# Download: " \
- && echo $(/usr/local/bin/go-github rLatestUrl --ghorg ChristianKniep --ghrepo influxdb --regex "influx_v${INFLUXDB_VER}.*_alpine" --limit=1) \
- && curl -fsL --output /usr/local/bin/influx $(/usr/local/bin/go-github rLatestUrl --ghorg ChristianKniep --ghrepo influxdb --regex "influx_v${INFLUXDB_VER}.*_alpine" --limit=1) \
- && echo -n "# Download: " \
- && echo $(/usr/local/bin/go-github rLatestUrl --ghorg ChristianKniep --ghrepo influxdb --regex "influxd_v${INFLUXDB_VER}.*_alpine" --limit=1) \
- && curl -fsL --output /usr/local/bin/influxd $(/usr/local/bin/go-github rLatestUrl --ghorg ChristianKniep --ghrepo influxdb --regex "influxd_v${INFLUXDB_VER}.*_alpine" --limit=1) \
- && chmod +x /usr/local/bin/influx* \
- && wget -qO - ${INFLUXDB_URL}/influxdb-${INFLUXDB_VER}_linux_amd64.tar.gz |tar xfz - -C /opt/ \
- && mv $(find /opt/ -type d -name "influxdb*" -maxdepth 1) /opt/influxdb \
- && rm -f /usr/local/bin/go-github /opt/influxdb/usr/bin/influx* \
  && mkdir -p /usr/share/collectd/ \
  && wget -qO /usr/share/collectd/types.db https://raw.githubusercontent.com/collectd/collectd/master/src/types.db \
  && curl -Lso /tmp/consul-template.zip https://releases.hashicorp.com/consul-template/${CT_VER}/consul-template_${CT_VER}_linux_amd64.zip \
@@ -49,11 +50,11 @@ RUN apk --no-cache add wget curl \
  && apk --no-cache del unzip wget curl \
  && rm -f /tmp/consul-template.zip
 
-ADD opt/qnib/influxdb/bin/start.sh \
-    opt/qnib/influxdb/bin/healthcheck.sh \
+COPY opt/qnib/influxdb/bin/start.sh \
    /opt/qnib/influxdb/bin/
-ADD etc/consul-templates/influxdb/influxdb.conf.ctmpl /etc/consul-templates/influxdb/
-ADD opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
+COPY opt/healthchecks/20-influxdb.sh /opt/healthchecks/
+COPY etc/consul-templates/influxdb/influxdb.conf.ctmpl /etc/consul-templates/influxdb/
+COPY opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
 HEALTHCHECK --interval=5s --retries=15 --timeout=1s \
-  CMD /opt/qnib/influxdb/bin/healthcheck.sh
+  CMD /usr/local/bin/healthcheck.sh
 CMD ["/opt/qnib/influxdb/bin/start.sh"]
