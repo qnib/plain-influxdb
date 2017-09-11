@@ -1,0 +1,29 @@
+version: '3'
+services:
+  backend:
+    image: qnib/plain-influxdb:dirty
+    environment:
+     - INFLUXDB_DATABASES=metrics
+     - INFLUXDB_META_LOGGING=true
+     - INFLUXDB_OPENTSDB_ENABLED=true
+    volumes:
+     - /opt/influxdb/shared
+    ports:
+     - 2003:2003
+     - 4242:4242
+     - 8086:8086
+
+  chronograf:
+    image: qnib/plain-chronograf:0.1.3.7@sha256:23cf1696820dc8c2d3dbb9d11388c8465d68d9256dd38ab5a4f1a38adf579128
+    ports:
+     - 8888:8888
+    environment:
+     - INFLUXDB_HOST=tasks.backend
+
+  frontend:
+    image: qnib/plain-grafana4:4.4.1.2
+    ports:
+     - 3000:3000
+    environment:
+     - INFLUXDB_HOST=tasks.backend
+     - INFLUXDB_DB=metrics

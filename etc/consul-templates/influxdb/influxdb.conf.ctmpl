@@ -42,7 +42,7 @@ bind-address = ":8088"
 
 [admin]
   enabled = true
-  bind-address = ":{{ env "INFLUXDB_ADMIN_PORT" }}"
+  bind-address = "{{ env "INFLUXDB_ADMIN_HOST" }}:{{ env "INFLUXDB_ADMIN_PORT" }}"
   https-enabled = false
   https-certificate = "/etc/ssl/influxdb.pem"
 
