@@ -1,7 +1,7 @@
 version: '3'
 services:
   backend:
-    image: qnib/plain-influxdb:1.3.5@sha256:562d863843c48700b6d8d84c953ad86080b109c598e488733639c2d5cce7df65
+    image: qnib/plain-influxdb:1.3.7
     environment:
      - INFLUXDB_DATABASES=metrics
      - INFLUXDB_META_LOGGING=true
