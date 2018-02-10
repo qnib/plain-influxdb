@@ -27,7 +27,7 @@ ENV ROOT_PASSWORD=root \
     INFLUXDB_TRACE_LOGGING=false \
     ENTRYPOINTS_DIR=/opt/qnib/entry \
     PATH=${PATH}:/opt/influxdb/
-ARG INFLUXDB_VER=1.3.7
+ARG INFLUXDB_VER=1.4.3
 ARG INFLUXDB_URL=https://dl.influxdata.com/influxdb/releases
 ARG CT_VER=0.18.5
 RUN apk add --no-cache --virtual .build-deps wget gnupg tar ca-certificates \
