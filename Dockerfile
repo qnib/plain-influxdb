@@ -1,5 +1,11 @@
-FROM qnib/alplain-init
+FROM alpine:3.19 AS down
+ARG INFLUXDB_VER=2.7.5
+WORKDIR /opt/
+RUN wget -qO- https://dl.influxdata.com/influxctl/releases/influxctl-v2.4.2-linux-x86_64.tar.gz |tar xfz - --strip-components=0
+RUN wget -qO- https://dl.influxdata.com/influxdb/releases/influxdb2-${INFLUXDB_VER}_linux_amd64.tar.gz |tar xfz - --strip-components=1
+COPY init.sh /opt/usr/lib/influxdb/scripts/init.sh
 
+FROM qnib/alplain-init
 ENV ROOT_PASSWORD=root \
     METRIC_DATABASE=carbon \
     METRIC_USERNAME=carbon \
@@ -7,6 +13,8 @@ ENV ROOT_PASSWORD=root \
     DASHBOARD_DATABASE=default \
     DASHBOARD_USERNAME=default \
     DASHBOARD_PASSWORD=default \
+    INFLUX_USER=influxdb \
+    INFLUX_GROUP=influxdb \
     INFLUXDB_META_PORT=8088 \
     INFLUXDB_META_HTTP_PORT=8091 \
     INFLUXDB_ADMIN_HOST=0.0.0.0 \
@@ -27,17 +35,18 @@ ENV ROOT_PASSWORD=root \
     INFLUXDB_TRACE_LOGGING=false \
     ENTRYPOINTS_DIR=/opt/qnib/entry \
     PATH=${PATH}:/opt/influxdb/
-ARG INFLUXDB_VER=1.4.3
-ARG INFLUXDB_URL=https://dl.influxdata.com/influxdb/releases
+ARG INFLUXDB_VER=2.7.5
 ARG CT_VER=0.18.5
+WORKDIR /opt/influxdb/
+COPY --from=down /opt/influxctl /usr/bin/
+COPY --from=down /opt/usr/bin/influxd /usr/bin/
+COPY --from=down /opt/usr/share/influxdb /usr/share/influxdb
+COPY --from=down /opt/usr/lib/influxdb /usr/lib/influxdb
+RUN adduser --disabled-password --home /home/${INFLUX_USER} ${INFLUX_USER} \
+ && mkdir -p /var/log/influxdb /var/run/influxdb \
+ && chown -R ${INFLUX_USER}: /var/log/influxdb \
+ && chown -R ${INFLUX_USER}: /var/run/influxdb
 RUN apk add --no-cache --virtual .build-deps wget gnupg tar ca-certificates \
- && wget -q https://dl.influxdata.com/influxdb/releases/influxdb-${INFLUXDB_VER}-static_linux_amd64.tar.gz \
- && mkdir -p /usr/src /opt/influxdb/ \
- && tar -C /usr/src -xzf influxdb-${INFLUXDB_VER}-static_linux_amd64.tar.gz \
- && rm -f /usr/src/influxdb-*/influxdb.conf \
- && chmod +x /usr/src/influxdb-*/* \
- && cp -a /usr/src/influxdb-*/* /opt/influxdb/ \
- && rm -rf *.tar.gz* /usr/src /root/.gnupg \
  && apk del .build-deps \
  && apk --no-cache add wget curl \
  && wget -qO /usr/local/bin/go-github https://github.com/qnib/go-github/releases/download/0.2.2/go-github_0.2.2_MuslLinux \
@@ -51,8 +60,7 @@ RUN apk add --no-cache --virtual .build-deps wget gnupg tar ca-certificates \
  && apk --no-cache del unzip wget curl \
  && rm -f /tmp/consul-template.zip
 
-COPY opt/qnib/influxdb/bin/start.sh \
-   /opt/qnib/influxdb/bin/
+COPY opt/qnib/influxdb/bin/start.sh /opt/qnib/influxdb/bin/
 COPY opt/healthchecks/20-influxdb.sh /opt/healthchecks/
 COPY etc/consul-templates/influxdb/influxdb.conf.ctmpl /etc/consul-templates/influxdb/
 COPY opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
