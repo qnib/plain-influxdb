@@ -1,11 +1,22 @@
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.19 AS down
 ARG INFLUXDB_VER=2.7.5
+ARG TARGETARCH
 WORKDIR /opt/
-RUN wget -qO- https://dl.influxdata.com/influxctl/releases/influxctl-v2.4.2-linux-x86_64.tar.gz |tar xfz - --strip-components=0
-RUN wget -qO- https://dl.influxdata.com/influxdb/releases/influxdb2-${INFLUXDB_VER}_linux_amd64.tar.gz |tar xfz - --strip-components=1
+RUN <<eot ash
+  if [[ ${TARGETARCH} == "amd64" ]];then
+    wget -qO- https://dl.influxdata.com/influxctl/releases/influxctl-v2.4.2-linux-x86_64.tar.gz |tar xfz - --strip-components=0
+  else
+    wget -qO- https://dl.influxdata.com/influxctl/releases/influxctl-v2.4.2-linux-arm64.tar.gz |tar xfz - --strip-components=0
+  fi
+  wget -qO- https://dl.influxdata.com/influxdb/releases/influxdb2-${INFLUXDB_VER}_linux_${TARGETARCH}.tar.gz |tar xfz - --strip-components=1
+  wget -qO- https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.3-linux-${TARGETARCH}.tar.gz |tar xfz - --strip-components=0
+eot
+
 COPY init.sh /opt/usr/lib/influxdb/scripts/init.sh
 
-FROM qnib/alplain-init
+FROM qnib/alplain-init:3.19.0
+ARG TARGETARCH
 ENV ROOT_PASSWORD=root \
     METRIC_DATABASE=carbon \
     METRIC_USERNAME=carbon \
@@ -13,7 +24,11 @@ ENV ROOT_PASSWORD=root \
     DASHBOARD_DATABASE=default \
     DASHBOARD_USERNAME=default \
     DASHBOARD_PASSWORD=default \
+    INFLUXDB_ORG_NAME=qnib \
+    INFLUXDB_OPERATOR_TOKEN=qnib \
     INFLUX_USER=influxdb \
+    INFLUXDB_BUCKET=qnib \
+    INFLUX_PASSWD=influxdb \
     INFLUX_GROUP=influxdb \
     INFLUXDB_META_PORT=8088 \
     INFLUXDB_META_HTTP_PORT=8091 \
@@ -38,31 +53,20 @@ ENV ROOT_PASSWORD=root \
 ARG INFLUXDB_VER=2.7.5
 ARG CT_VER=0.18.5
 WORKDIR /opt/influxdb/
-COPY --from=down /opt/influxctl /usr/bin/
+COPY --from=down /opt/influx /usr/bin/
+COPY --from=down /opt/config.toml .
 COPY --from=down /opt/usr/bin/influxd /usr/bin/
 COPY --from=down /opt/usr/share/influxdb /usr/share/influxdb
 COPY --from=down /opt/usr/lib/influxdb /usr/lib/influxdb
-RUN adduser --disabled-password --home /home/${INFLUX_USER} ${INFLUX_USER} \
- && mkdir -p /var/log/influxdb /var/run/influxdb \
- && chown -R ${INFLUX_USER}: /var/log/influxdb \
- && chown -R ${INFLUX_USER}: /var/run/influxdb
-RUN apk add --no-cache --virtual .build-deps wget gnupg tar ca-certificates \
- && apk del .build-deps \
- && apk --no-cache add wget curl \
- && wget -qO /usr/local/bin/go-github https://github.com/qnib/go-github/releases/download/0.2.2/go-github_0.2.2_MuslLinux \
- && chmod +x /usr/local/bin/go-github \
- && echo -n "# Download: " \
- && mkdir -p /usr/share/collectd/ \
- && wget -qO /usr/share/collectd/types.db https://raw.githubusercontent.com/collectd/collectd/master/src/types.db \
- && curl -Lso /tmp/consul-template.zip https://releases.hashicorp.com/consul-template/${CT_VER}/consul-template_${CT_VER}_linux_amd64.zip \
- && cd /usr/local/bin \
- && unzip /tmp/consul-template.zip \
- && apk --no-cache del unzip wget curl \
- && rm -f /tmp/consul-template.zip
+RUN <<eot ash
+  adduser --disabled-password --home /home/${INFLUX_USER} ${INFLUX_USER}
+ mkdir -p /var/log/influxdb /var/run/influxdb
+ chown -R ${INFLUX_USER}: /var/log/influxdb
+ chown -R ${INFLUX_USER}: /var/run/influxdb
+eot
 
 COPY opt/qnib/influxdb/bin/start.sh /opt/qnib/influxdb/bin/
 COPY opt/healthchecks/20-influxdb.sh /opt/healthchecks/
-COPY etc/consul-templates/influxdb/influxdb.conf.ctmpl /etc/consul-templates/influxdb/
 COPY opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
 HEALTHCHECK --interval=5s --retries=15 --timeout=1s \
   CMD /usr/local/bin/healthcheck.sh
