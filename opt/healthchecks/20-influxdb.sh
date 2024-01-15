@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/bin/ash
 
-influx -execute 'show databases'
+influx ping

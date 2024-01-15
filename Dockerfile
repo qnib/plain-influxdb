@@ -68,6 +68,6 @@ eot
 COPY opt/qnib/influxdb/bin/start.sh /opt/qnib/influxdb/bin/
 COPY opt/healthchecks/20-influxdb.sh /opt/healthchecks/
 COPY opt/qnib/entry/10-influxdb.sh /opt/qnib/entry/
-HEALTHCHECK --interval=5s --retries=15 --timeout=1s \
+HEALTHCHECK --interval=5s --retries=3 --timeout=1s \
   CMD /usr/local/bin/healthcheck.sh
 CMD ["/opt/qnib/influxdb/bin/start.sh"]
